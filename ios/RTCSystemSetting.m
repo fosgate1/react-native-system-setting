@@ -12,7 +12,7 @@
 #import <CoreTelephony/CTTelephonyNetworkInfo.h>
 #import <ifaddrs.h>
 #import <net/if.h>
-
+#import <AVFoundation/AVFoundation.h>
 #ifdef BLUETOOTH
 #import <CoreBluetooth/CoreBluetooth.h>
 #endif
@@ -40,10 +40,10 @@
 -(instancetype)init{
     self = [super init];
     if(self){
-        [[NSNotificationCenter defaultCenter] addObserver:self
-                                                 selector:@selector(volumeChanged:)
-                                                     name:@"AVSystemController_SystemVolumeDidChangeNotification"
-                                                   object:nil];
+         [[NSNotificationCenter defaultCenter] addObserver:self
+                                         selector:@selector(addVolumeListener:)
+                                             name:UIApplicationDidBecomeActiveNotification
+                                           object:nil];
 #ifdef BLUETOOTH
         cb = [[CBCentralManager alloc] initWithDelegate:nil queue:nil options:@{CBCentralManagerOptionShowPowerAlertKey: @NO}];
 #endif
@@ -56,7 +56,29 @@
 
     return self;
 }
+- (void)addVolumeListener:(NSNotification *)notification {
+        NSLog(@"AddVolumeListener");
+        AVAudioSession* audioSession = [AVAudioSession sharedInstance];
 
+        [audioSession setActive:YES error:nil];
+        [audioSession addObserver:self
+                       forKeyPath:@"outputVolume"
+                          options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld
+                          context:nil];
+}
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSString *,id> *)change context:(void *)context
+{
+
+    if (object == [AVAudioSession sharedInstance] && [keyPath isEqualToString:@"outputVolume"]) {
+        float newValue = [change[@"new"] floatValue];
+        if (skipSetVolumeCount == 0 && hasListeners) {
+                [self sendEventWithName:@"EventVolume" body:@{@"value": [NSNumber numberWithFloat:newValue]}];
+        }
+        if (skipSetVolumeCount > 0) {
+                skipSetVolumeCount--;
+        }
+    }
+}
 -(void)initVolumeView{
     skipSetVolumeCount = 0;
     volumeView = [[MPVolumeView alloc] initWithFrame:CGRectMake(-[UIScreen mainScreen].bounds.size.width, 0, 0, 0)];
