@@ -61,6 +61,10 @@
         AVAudioSession* audioSession = [AVAudioSession sharedInstance];
 
         [audioSession setActive:YES error:nil];
+        [audioSession setCategory:AVAudioSessionCategoryAmbient
+         withOptions:AVAudioSessionCategoryOptionMixWithOthers
+               error:nil];
+
         [audioSession addObserver:self
                        forKeyPath:@"outputVolume"
                           options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld
